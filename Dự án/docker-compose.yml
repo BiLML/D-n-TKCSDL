@@ -1,37 +1,45 @@
 services:
   db:
     image: postgres:15-alpine
-    container_name: contentmanagementdb
+    container_name: qldt_db
     restart: always
     env_file:
-      - .env
+      - .env.docker
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     networks:
-      - content_network 
+      - qldt_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d qldt_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: dockerfile
-    container_name: contentmanagementbackend
+    container_name: qldt_backend
     restart: always
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - .env.docker
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
-      - content_network
+      - qldt_network
     volumes:
       - ./backend/src:/app/src
       - ./backend/alembic:/app/alembic
       - ./backend/alembic.ini:/app/alembic.ini
+
 networks:
-  content_network:
+  qldt_network:
     driver: bridge
 
 volumes:
